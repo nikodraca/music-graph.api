@@ -1,0 +1,10 @@
+{
+  "name": "genre-graph.api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Niko Draca",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^8.2.0"
+  }
+}
