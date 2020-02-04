@@ -5,6 +5,39 @@
   "author": "Niko Draca",
   "license": "MIT",
   "dependencies": {
-    "dotenv": "^8.2.0"
+    "@hapi/boom": "^9.0.0",
+    "@hapi/joi": "^17.1.0",
+    "@types/hapi": "^18.0.3",
+    "@types/hapi__joi": "^16.0.9",
+    "@types/node": "^13.5.0",
+    "@types/request": "^2.48.4",
+    "@types/request-promise": "^4.1.45",
+    "dotenv": "^8.2.0",
+    "hapi": "^18.1.0",
+    "nodemon": "^2.0.2",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.5",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.7.5"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "start": "node ./dist/index.js",
+    "dev": "NODE_ENV=development nodemon --exec 'ts-node --project tsconfig.json' index.ts",
+    "prettier": "prettier --config .prettierrc --write '**/*.{ts,js,css,html}'",
+    "test": "mocha --recursive --require ts-node/register tests/**/*.ts --bail"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      ".git",
+      "node_modules"
+    ],
+    "watch": [
+      "src"
+    ],
+    "exec": "npm start",
+    "ext": "ts"
   }
 }
