@@ -1,25 +1,18 @@
 import { Request } from 'hapi';
-import * as rp from 'request-promise';
+import { SpotifyUser } from './spotify';
 import * as Boom from '@hapi/boom';
 
 export const getUserData = async (req: Request) => {
-  const { spotifyAccessToken } = req.query;
-
-  if (!spotifyAccessToken) return Boom.badRequest('Missing Spotify access token');
-
   try {
-    let userResp = await rp({
-      method: 'GET',
-      uri: 'https://api.spotify.com/v1/me',
-      json: true,
-      headers: {
-        Authorization: `Bearer ${spotifyAccessToken}`
-      },
-      resolveWithFullResponse: true
-    });
+    const spotifyAccessToken = req.headers.access_token;
 
-    return userResp;
+    if (!spotifyAccessToken) return Boom.badRequest('Missing Spotify access token');
+
+    const spotifyUser = await SpotifyUser.fetch(spotifyAccessToken as string);
+    await spotifyUser.getTopArtists();
+
+    return spotifyUser.formatResponse();
   } catch (err) {
-    return Boom.badRequest(err.error.error.message);
+    return Boom.badRequest(err);
   }
 };

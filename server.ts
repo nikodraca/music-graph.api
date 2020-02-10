@@ -6,11 +6,14 @@ export async function init(): Promise<Hapi.Server> {
     const port = process.env.PORT;
 
     const server = new Hapi.Server({
-      debug: { request: ['error'] },
       port,
       routes: {
         cors: {
-          origin: ['*']
+          origin: ['*'],
+          headers: ['Authorization', 'access_token'],
+          exposedHeaders: ['Accept'],
+          additionalExposedHeaders: ['Accept'],
+          credentials: true
         }
       }
     });
