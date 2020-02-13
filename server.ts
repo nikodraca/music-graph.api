@@ -1,5 +1,6 @@
 import * as Hapi from 'hapi';
 import Routes from './src/api';
+import { DBClient } from './src/db';
 
 export async function init(): Promise<Hapi.Server> {
   try {
@@ -21,6 +22,8 @@ export async function init(): Promise<Hapi.Server> {
     Routes.forEach(r => {
       server.route(r);
     });
+
+    await DBClient.init();
 
     return server;
   } catch (err) {

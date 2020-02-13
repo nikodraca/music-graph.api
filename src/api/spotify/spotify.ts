@@ -1,50 +1,78 @@
 import * as rp from 'request-promise';
-
+import { DBClient } from '../../db';
 import { SpotifyUserData, SpotifyArtist, TopArtistGraph } from './types';
 
-const fetchSpotifyData = async (accessToken: string, uri: string) => {
-  try {
-    return await rp({
-      method: 'GET',
-      uri,
-      json: true,
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
-  } catch (err) {
-    throw new Error(err.error.error.message);
-  }
-};
-
 export class SpotifyUser {
-  static async fetch(accessToken: string): Promise<SpotifyUser> {
-    const response = await fetchSpotifyData(accessToken, 'https://api.spotify.com/v1/me');
+  static async fetch({
+    spotifyUserId,
+    spotifyAccessToken
+  }: {
+    spotifyUserId: string | undefined;
+    spotifyAccessToken: string | undefined;
+  }): Promise<SpotifyUser> {
+    let userData: SpotifyUserData;
+    let topArtists: Array<SpotifyArtist>;
 
-    const userData: SpotifyUserData = {
-      id: response.id,
-      displayName: response.display_name,
-      email: response.email,
-      profilePicture: response.images[0]?.url
-    };
+    //   1. try to fetch from db
+    if (spotifyUserId) {
+      const userRecord = await DBClient.findRecord('graphs', 'users', { 'userData.id': spotifyUserId });
 
-    return new SpotifyUser(accessToken, userData);
+      if (userRecord) {
+        userData = userRecord.userData;
+        topArtists = userRecord.topArtists;
+
+        return new SpotifyUser(userData, topArtists);
+      }
+    }
+
+    //new auth user, fetch data from Spotify API and save to db
+    else if (spotifyAccessToken) {
+      const response = await SpotifyUser.fetchSpotifyData(spotifyAccessToken, 'https://api.spotify.com/v1/me');
+
+      userData = {
+        id: response.id,
+        displayName: response.display_name,
+        email: response.email,
+        profilePicture: response.images[0]?.url
+      };
+
+      topArtists = await SpotifyUser.getTopArtists(spotifyAccessToken);
+
+      await DBClient.insertRecord(
+        'graphs',
+        'users',
+        { 'userData.id': userData.id },
+        { $set: { userData, topArtists } }
+      );
+
+      return new SpotifyUser(userData, topArtists);
+    }
+
+    throw new Error('Could not fetch user data');
   }
 
-  private readonly accessToken: string;
-  private readonly userData: SpotifyUserData;
-  private topArtists?: Array<SpotifyArtist>;
-  private artistGraph?: TopArtistGraph;
-
-  private constructor(accessToken: string, userData: SpotifyUserData) {
-    this.accessToken = accessToken;
-    this.userData = userData;
+  static async fetchSpotifyData(accessToken: string, uri: string) {
+    try {
+      return await rp({
+        method: 'GET',
+        uri,
+        json: true,
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+    } catch (err) {
+      throw new Error(err.error.error.message);
+    }
   }
 
-  async getTopArtists(): Promise<void> {
-    const response = await fetchSpotifyData(this.accessToken, `https://api.spotify.com/v1/me/top/artists?limit=50`);
+  static async getTopArtists(accessToken: string): Promise<Array<SpotifyArtist>> {
+    const response = await SpotifyUser.fetchSpotifyData(
+      accessToken,
+      `https://api.spotify.com/v1/me/top/artists?limit=50&time_range=medium_term`
+    );
 
-    this.topArtists = response.items.map(
+    return response.items.map(
       (artist: any): SpotifyArtist => {
         return {
           id: artist.id,
@@ -54,12 +82,18 @@ export class SpotifyUser {
         };
       }
     );
+  }
 
-    this.generateTopArtistsGraph();
+  private readonly userData: SpotifyUserData;
+  private readonly topArtists: Array<SpotifyArtist>;
+
+  private constructor(userData: SpotifyUserData, topArtists: Array<SpotifyArtist>) {
+    this.userData = userData;
+    this.topArtists = topArtists;
   }
 
   // create adjency list of artists by common genres
-  generateTopArtistsGraph(): void {
+  generateTopArtistsGraph(): TopArtistGraph {
     const networkGraph: TopArtistGraph = {
       nodes: [],
       edges: []
@@ -67,7 +101,7 @@ export class SpotifyUser {
 
     const genreMap: any = {};
 
-    this.topArtists!.forEach(artist => {
+    this.topArtists.forEach(artist => {
       // create every possible node
       networkGraph.nodes.push({ id: artist.id, label: artist.name, image: artist.profilePicture });
 
@@ -89,13 +123,15 @@ export class SpotifyUser {
       });
     });
 
-    this.artistGraph = networkGraph;
+    return networkGraph;
   }
 
   formatResponse() {
+    const artistGraph = this.generateTopArtistsGraph();
+
     return {
       user: this.userData,
-      artistGraph: this.artistGraph
+      artistGraph: artistGraph
     };
   }
 }

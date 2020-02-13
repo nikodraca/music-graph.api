@@ -4,12 +4,12 @@ import * as Boom from '@hapi/boom';
 
 export const getUserData = async (req: Request) => {
   try {
+    const spotifyUserId = req.query.spotifyUserId as string | undefined;
     const spotifyAccessToken = req.headers.access_token;
 
-    if (!spotifyAccessToken) return Boom.badRequest('Missing Spotify access token');
+    if (!spotifyUserId && !spotifyAccessToken) return Boom.badRequest('Missing credentials');
 
-    const spotifyUser = await SpotifyUser.fetch(spotifyAccessToken as string);
-    await spotifyUser.getTopArtists();
+    const spotifyUser = await SpotifyUser.fetch({ spotifyAccessToken, spotifyUserId });
 
     return spotifyUser.formatResponse();
   } catch (err) {
