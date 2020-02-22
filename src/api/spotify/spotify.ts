@@ -27,15 +27,7 @@ export class SpotifyUser {
 
     //new auth user, fetch data from Spotify API and save to db
     else if (spotifyAccessToken) {
-      const response = await SpotifyUser.fetchSpotifyData(spotifyAccessToken, 'https://api.spotify.com/v1/me');
-
-      userData = {
-        id: response.id,
-        displayName: response.display_name,
-        email: response.email,
-        profilePicture: response.images[0]?.url
-      };
-
+      userData = await SpotifyUser.getUser(spotifyAccessToken);
       topArtists = await SpotifyUser.getTopArtists(spotifyAccessToken);
 
       await DBClient.insertRecord(
@@ -82,6 +74,17 @@ export class SpotifyUser {
         };
       }
     );
+  }
+
+  static async getUser(accessToken: string): Promise<SpotifyUserData> {
+    const response = await SpotifyUser.fetchSpotifyData(accessToken, 'https://api.spotify.com/v1/me');
+
+    return {
+      id: response.id,
+      displayName: response.display_name,
+      email: response.email,
+      profilePicture: response.images[0]?.url
+    };
   }
 
   private readonly userData: SpotifyUserData;
@@ -131,7 +134,7 @@ export class SpotifyUser {
 
     return {
       user: this.userData,
-      artistGraph: artistGraph
+      artistGraph
     };
   }
 }
